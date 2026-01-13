@@ -102,3 +102,31 @@ def test_reasoning_switch():
         generator = OpenAIGenerator(
             name="o1-mini"
         )  # o1 models should use ReasoningGenerator
+
+
+@pytest.mark.usefixtures("set_fake_env")
+def test_gpt5_chat_model_selection():
+    generator = OpenAIGenerator(name="gpt-5")
+    generator._load_client()
+    assert generator.generator == generator.client.chat.completions
+    assert "max_tokens" in generator.suppressed_params
+    assert "stop" in generator.suppressed_params
+    assert "temperature" in generator.suppressed_params
+    assert getattr(generator, "max_completion_tokens", None) is not None
+
+    generator = OpenAIGenerator(name="gpt-5-mini")
+    generator._load_client()
+    assert generator.generator == generator.client.chat.completions
+    assert "max_tokens" in generator.suppressed_params
+    assert "stop" in generator.suppressed_params
+    assert "temperature" in generator.suppressed_params
+    assert getattr(generator, "max_completion_tokens", None) is not None
+
+    # Dated suffix variants should also be treated as chat models.
+    generator = OpenAIGenerator(name="gpt-5-2026-01-13")
+    generator._load_client()
+    assert generator.generator == generator.client.chat.completions
+    assert "max_tokens" in generator.suppressed_params
+    assert "stop" in generator.suppressed_params
+    assert "temperature" in generator.suppressed_params
+    assert getattr(generator, "max_completion_tokens", None) is not None

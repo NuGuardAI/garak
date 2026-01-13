@@ -28,6 +28,8 @@ from garak.generators.base import Generator
 # lists derived from https://platform.openai.com/docs/models
 chat_models = (
     "chatgpt-4o-latest",  # links to latest version
+    "gpt-5",  # links to latest version
+    "gpt-5-mini",  # links to latest version
     "gpt-3.5-turbo",  # links to latest version
     "gpt-3.5-turbo-0125",
     "gpt-3.5-turbo-1106",
@@ -93,6 +95,8 @@ context_lengths = {
     "babbage-002": 16384,
     "chatgpt-4o-latest": 128000,
     "davinci-002": 16384,
+    "gpt-5": 128000,
+    "gpt-5-mini": 128000,
     "gpt-3.5-turbo": 16385,
     "gpt-3.5-turbo-0125": 16385,
     "gpt-3.5-turbo-0613": 4096,
@@ -326,19 +330,39 @@ class OpenAIGenerator(OpenAICompatible):
                 + "  ⚠️  Not all these are text generation models"
             )
 
+        # GPT-5-class models require `max_completion_tokens` instead of `max_tokens`.
+        # Keep `Generator.max_tokens` as the canonical config knob, but translate it
+        # here to avoid the OpenAI API returning 400 + causing downstream SKIP.
+        if self.name.startswith("gpt-5"):
+            if not hasattr(self, "suppressed_params") or self.suppressed_params is None:
+                self.suppressed_params = set()
+            self.suppressed_params.add("max_tokens")
+            self.suppressed_params.add("stop")
+            self.suppressed_params.add("temperature")
+            if getattr(self, "max_completion_tokens", None) is None:
+                self.max_completion_tokens = getattr(self, "max_tokens", None)
+
         if self.name in completion_models:
             self.generator = self.client.completions
         elif self.name in chat_models:
             self.generator = self.client.chat.completions
-        elif "-".join(self.name.split("-")[:-1]) in chat_models and re.match(
-            r"^.+-[01][0-9][0-3][0-9]$", self.name
-        ):  # handle model names -MMDDish suffix
-            self.generator = self.client.completions
-
         else:
-            raise ValueError(
-                f"No {self.generator_family_name} API defined for '{self.name}' in generators/openai.py - please add one!"
-            )
+            # Handle common suffix variants without requiring every dated model name
+            # to be explicitly listed.
+            base_name = self.name
+            if re.match(r"^.+-\d{4}-\d{2}-\d{2}$", self.name):  # -YYYY-MM-DD
+                base_name = "-".join(self.name.split("-")[:-3])
+            elif re.match(r"^.+-[01][0-9][0-3][0-9]$", self.name):  # -MMDD
+                base_name = "-".join(self.name.split("-")[:-1])
+
+            if base_name in chat_models or self.name.startswith("gpt-5"):
+                self.generator = self.client.chat.completions
+            elif base_name in completion_models:
+                self.generator = self.client.completions
+            else:
+                raise ValueError(
+                    f"No {self.generator_family_name} API defined for '{self.name}' in generators/openai.py - please add one!"
+                )
 
         if self.__class__.__name__ == "OpenAIGenerator" and self.name.startswith("o"):
             msg = "'o'-class models should use openai.OpenAIReasoningGenerator. Try e.g. `-m openai.OpenAIReasoningGenerator` instead of `-m openai`"
