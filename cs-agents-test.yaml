@@ -1,0 +1,11 @@
+---
+plugins:
+  target_type: rest.RestGenerator
+  target_name: http://localhost:8000/chat
+  generators:
+    rest:
+      RestGenerator:
+        req_template_json_object:
+          message: "$INPUT"
+        response_json: true
+        response_json_field: "$.messages[0].content"
