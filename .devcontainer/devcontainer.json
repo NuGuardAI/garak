@@ -1,0 +1,24 @@
+{
+	"name": "garak",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"python.defaultInterpreterPath": "/usr/local/bin/python",
+				"python.linting.enabled": true,
+				"python.linting.pylintEnabled": true,
+				"python.formatting.provider": "black"
+			},
+			"extensions": [
+				"ms-python.python",
+				"ms-python.vscode-pylint",
+				"ms-python.black-formatter",
+				"charliermarsh.ruff"
+			]
+		}
+	},
+	"postCreateCommand": "python -m pip install --upgrade pip && python -m pip install -e .[tests,lint,calibration,audio,dra] && python -m pip install -r docs/requirements-docs.txt -r tools/requirements.txt",
+	"remoteUser": "vscode"
+}
